@@ -12,7 +12,7 @@ make up an answer. Don't make up new terms which are not available in the contex
 {context}"""
 
 END_7B = '\n<|prompter|>{query}<|endoftext|><|assistant|>'
-END_40 = '\nUser: {query}\nFalcon:'
+END_40B = '\nUser: {query}\nFalcon:'
 
 PARAMETERS = {
     "temperature": 0.9,
@@ -24,7 +24,7 @@ PARAMETERS = {
     "seed": 42,
     "stop_sequences": ["<|endoftext|>", "</s>"],
 }
-CLIENT_7B = Client("http://")  # Fill this part
+CLIENT_7B = Client("http://127.0.0.1:3000")  
 CLIENT_40B = Client("https://")  # Fill this part
 
 def parse_args():
@@ -42,11 +42,10 @@ def embed(fname, windows_size, step_size):
     
     sentences = []
     for i in range(0, len(text_tokens), step_size):
-        window = text_tokens[i:i+windows_size]
+        window = text_tokens[i : i + windows_size]
+        sentences.append(window)  # Here!
         if len(window) < windows_size:
             break
-        
-        sentences.append(window)
         
     paragraphs = [' '.join(s) for s in sentences]
     print(f'Number of paragraphs: {len(paragraphs)}')
@@ -87,3 +86,18 @@ if __name__ == '__main__':
         print('\n')
         query = input('Enter query: ')
         results = search(query, model, cross_encoder, embeddings, paragraphs, top_k=args.top_k)
+        
+        query_7b = PREPROMPT + PROMPT.format(context="\n".join(results))
+        query_7b += END_7B.format(query=query)
+
+        query_40b = PREPROMPT + PROMPT.format(context="\n".join(results))
+        query_40b += END_40B.format(query=query)
+
+        text = ""
+        
+        for response in CLIENT_40B.generate_stream(query_40b, **PARAMETERS):
+            if not response.token.special:
+                text += response.token.text
+
+        print("\n***40b response***")
+        print(text)
